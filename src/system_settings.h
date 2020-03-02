@@ -24,6 +24,7 @@
 #define HOMEBRIDGE_REGISTER_STR_MAX_LEN 240
 #define HOMEBRIDGE_UNREGISTER_STR_MAX_LEN 50
 #define HOMEBRIDGE_UPDATE_STR_LEN_MAX 240
+#define HOMEBRIDGE_SERVICE_TYPE_LEN_MAX 25
 
 const char json_str[] = R"(
 {
@@ -50,6 +51,15 @@ const char json_str[] = R"(
         "toggleStatus": [1, 16],
         "turnOn": [2, 17],
         "turnOff": [3, 18]
+      }
+    },
+    {
+      "type": "sh_fan_basic",
+      "name": "TestFan",
+      "mapping": {
+        "toggleStatus": [5, 16],
+        "turnOn": [6, 17],
+        "turnOff": [7, 18]
       }
     }
   ],

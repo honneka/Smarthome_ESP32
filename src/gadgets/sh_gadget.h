@@ -1,11 +1,11 @@
 #include <cstring>
 #include <Arduino.h>
-#include <connectors/serial_connector.h>
-#include <connectors/radio_connector.h>
-#include <connectors/mqtt_connector.h>
+#include "../connectors/serial_connector.h"
+#include "../connectors/radio_connector.h"
+#include "../connectors/ir_connector.h"
+#include "../connectors/mqtt_connector.h"
 #include "ArduinoJson.h"
-#include "colors.h"
-#include "connectors/ir_connector.h"
+#include "../colors.h"
 #include "../helping_structures.h"
 #include "../system_settings.h"
 #include "../console_logger.h"
@@ -19,20 +19,21 @@ enum SH_RGB_Color {
 enum SH_HSL_Color {
   SH_CLR_hue, SH_CLR_saturation, SH_CLR_lightness
 };
-enum SH_LAMP_TYPE {
-  ON_OFF, BRI_ONLY, CLR_ONLY, CLR_BRI
-};
 
-class SH_Gadget : public IR_Connector, public Serial_Connector, public Radio_Connector, public Homebridge_Connector {
+class SH_Gadget {
+private:
+
+
 protected:
+  // Main Gadget
   char name[GADGET_NAME_LEN_MAX]{};
   bool initialized;
   bool has_changed;
-
   byte mapping_count{};
-
   Mapping_Reference *mapping[MAPPING_MAX_COMMANDS]{};
+  // End Main Gadget
 
+  // Basic Code Connector
   const char *findMethodForCode(unsigned long code) {
     for (byte k = 0; k < mapping_count; k++) {
       if (mapping[k]->containsCode(code)) {
@@ -41,6 +42,114 @@ protected:
     }
     return nullptr;
   }
+
+  virtual void applyMappingMethod(const char *method) {}
+  // End Basic Code Connector
+
+  // Basic Request Connector
+
+  // End Basic Request Connector
+
+  // Homebridge Connector
+  char homebridge_service_type[HOMEBRIDGE_SERVICE_TYPE_LEN_MAX]{};
+  MQTT_Gadget *homebridge_mqtt_gadget;
+
+  bool registerHomebridgeGadget() {
+    char reg_str[HOMEBRIDGE_REGISTER_STR_MAX_LEN]{};
+    char characteristic_buffer[HOMEBRIDGE_REGISTER_STR_MAX_LEN-80]{};
+    if (getHomebridgeCharacteristics(&characteristic_buffer[0])) {
+      snprintf(reg_str, HOMEBRIDGE_REGISTER_STR_MAX_LEN, R"({"name": "%s", "service_name": "%s", "service": "%s", %s})", name, name, homebridge_service_type, characteristic_buffer);
+    } else {
+      sprintf(reg_str, R"({"name": "%s", "service_name": "%s", "service": "%s"})", name, name, homebridge_service_type);
+    }
+    return homebridge_mqtt_gadget->publishMessageAndWaitForAnswer("homebridge/to/add", &reg_str[0]);
+  }
+
+  bool unregisterHomebridgeGadget() {
+    char buf_msg[HOMEBRIDGE_UNREGISTER_STR_MAX_LEN]{};
+    snprintf(&buf_msg[0], HOMEBRIDGE_UNREGISTER_STR_MAX_LEN, R"({"name": "%s"})", name);
+    return homebridge_mqtt_gadget->publishMessageAndWaitForAnswer("homebridge/to/remove", &buf_msg[0]);
+  }
+
+  void initHomebridgeConnector(MQTT_Gadget *new_gadget) {
+    logger.println("Homebridge:");
+    logger.incIntent();
+    setHomebridgeMQTTGadget(new_gadget);
+    if (unregisterHomebridgeGadget())
+      logger.println(LOG_DATA, "Unregistered old gadget");
+    if (registerHomebridgeGadget())
+      logger.println(LOG_DATA, "Registered new gadget");
+    logger.decIntent();
+  }
+
+  void updateHomebridge(const char *data) {
+    homebridge_mqtt_gadget->publishMessage("homebridge/to/set", data);
+  }
+
+  void decodeHomebridgeCommand(JsonObject data) {
+    if (data["name"] != nullptr && data["characteristic"] != nullptr && data["value"] != nullptr) {
+      if (strcmp(name, data["name"].as<const char *>()) == 0) {
+        logger.print(LOG_DATA, "Gadget found: ");
+        logger.addln(name);
+        int value;
+        const char *characteristc = data["characteristic"].as<const char *>();
+        if (data["value"] == "true")
+          value = 1;
+        else if (data["value"] == "false")
+          value = 0;
+        else
+          value = data["value"].as<int>();
+        applyHomebridgeCommand(characteristc, value);
+      }
+    }
+  }
+
+  void setHomebridgeServiceType(const char *service_type) {
+    strncpy(&homebridge_service_type[0], service_type, HOMEBRIDGE_SERVICE_TYPE_LEN_MAX);
+  }
+
+  void setHomebridgeMQTTGadget(MQTT_Gadget *new_gadget) {
+    logger.println(LOG_DATA, "Setting MQTT Gadget");
+    homebridge_mqtt_gadget = new_gadget;
+  }
+
+  void updateHomebridgeCharacteristic(const char *characteristic, int value, bool do_update=true) {
+    if (characteristic != nullptr && do_update) {
+      char update_str[HOMEBRIDGE_UPDATE_STR_LEN_MAX]{};
+      sprintf(&update_str[0],
+              "{\"name\":\"%s\",\"service_name\":\"%s\",\"service_type\":\"%s\",\"characteristic\":\"%s\",\"value\":%d}",
+              name,
+              name,
+              &homebridge_service_type[0],
+              characteristic,
+              value);
+      updateHomebridge(&update_str[0]);
+    }
+  }
+
+  void updateHomebridgeCharacteristic(const char *characteristic, bool value, bool do_update=true) {
+    if (characteristic != nullptr && do_update) {
+      char bool_str[6]{};
+      if (value)
+        strcpy(bool_str, "true");
+      else
+        strcpy(bool_str, "false");
+      char update_str[HOMEBRIDGE_UPDATE_STR_LEN_MAX]{};
+      sprintf(&update_str[0],
+              "{\"name\":\"%s\",\"service_name\":\"%s\",\"service_type\":\"%s\",\"characteristic\":\"%s\",\"value\":%s}",
+              name,
+              name,
+              &homebridge_service_type[0],
+              characteristic,
+              &bool_str[0]);
+      updateHomebridge(&update_str[0]);
+    }
+  }
+
+  virtual bool getHomebridgeCharacteristics(char *buffer) {return false;}
+
+  virtual void applyHomebridgeCommand(const char *characteristic, int value) {};
+  // End Homebridge Connector
 
 public:
   SH_Gadget() :
@@ -83,16 +192,14 @@ public:
     }
   };
 
-  /**
-  * @return The Name of the Gadget
-  */
+  void initConnectors(MQTT_Gadget *mqtt_gadget) {
+    initHomebridgeConnector(mqtt_gadget);
+  }
+
   const char *getName() {
     return &name[0];
   }
 
-  /**
-  * @return Whether the Gadget is initialized or not
-  */
   bool isInitialized() {
     return initialized;
   };
@@ -102,25 +209,18 @@ public:
     return false;
   };
 
-  void decodeRequest(REQUEST_TYPE type, const char *path, const char *body) {
+  void handleCode(unsigned long code) {
+    applyMappingMethod(findMethodForCode(code));
   }
 
-  bool decodeRequest(REQUEST_TYPE type, const char *path, JsonObject body) {
-    if (type == REQ_MQTT && strcmp(path, "homebridge/out") == 0) {
+  void handleRequest(REQUEST_TYPE type, const char *path, const char *body) {
+    logger.println("Decoding String");
+  }
+
+  bool handleRequest(REQUEST_TYPE type, const char *path, JsonObject body) {
+    if (type == REQ_MQTT && strcmp(path, "homebridge/from/set") == 0) {
       decodeHomebridgeCommand(body);
     }
-  }
-
-  // Homeridge-Connector
-  void updateHomebridgeCharacteristic(const char *characteristic, int value) override {
-    updateHomebridgeCharakteristicHelper(name, characteristic, value);
-  }
-
-  void updateHomebridgeCharacteristic(const char *characteristic, bool value) override {
-    updateHomebridgeCharakteristicHelper(name, characteristic, value);
-  }
-
-  virtual void decodeCommand(unsigned long code) {
   }
 
   virtual void refresh() {
@@ -141,197 +241,4 @@ public:
 
 };
 
-class SH_Lamp : public SH_Gadget {
-protected:
-  float lightness;
-  float last_lightness{};
-  float default_lightness;
-  float min_lightness;
-
-  float saturation;
-
-  float hue;
-
-  SH_LAMP_TYPE type;
-
-public:
-
-  explicit SH_Lamp(JsonObject gadget) :
-    SH_Gadget(gadget),
-    lightness(100.0),
-    default_lightness(100.0),
-    min_lightness(35),
-    saturation(0),
-    hue(0) {
-    if (gadget["lamp_type"] != nullptr) {
-      type = (SH_LAMP_TYPE) gadget["lamp_type"].as<uint8_t>();
-      logger.print("Type: ");
-      logger.addln(type);
-    } else {
-      type = ON_OFF;
-      logger.print(LOG_WARN, "No Type found.");
-    }
-
-  };
-
-  SH_Lamp(JsonObject gadget, uint8_t lamp_type) :
-    SH_Gadget(gadget),
-    lightness(100.0),
-    default_lightness(100.0),
-    min_lightness(35),
-    saturation(0),
-    hue(0),
-    type((SH_LAMP_TYPE) lamp_type) {
-    logger.print("Type: ");
-    logger.addln(type);
-  };
-
-  // Lightness
-  void setLightness(float new_lightness) {
-    lightness = new_lightness;
-    has_changed = true;
-  };
-
-  float getLightness() {
-    return lightness;
-  };
-
-  // Color (RGB)
-  void setColor(uint8_t r, uint8_t g, uint8_t b) {
-    float hsl[3];
-    rgbToHsl(r, g, b, &hsl[0]);
-    hue = hsl[SH_CLR_hue];
-    saturation = hsl[SH_CLR_saturation];
-    lightness = hsl[SH_CLR_lightness];
-    has_changed = true;
-  };
-
-  uint8_t getColor(uint8_t color_index) {
-    uint8_t rgb[3];
-    hslToRgb(hue, saturation, lightness, &rgb[0]);
-    return rgb[color_index];
-  }
-
-  void getColor(uint8_t color_buffer[]) {
-    hslToRgb(hue, saturation, lightness, &color_buffer[0]);
-  }
-
-  // Hue
-  void setHue(float new_hue) {
-    hue = new_hue;
-    has_changed = true;
-  }
-
-  float getHue() {
-    return hue;
-  }
-
-  // Status
-  void toggleStatus() {
-    setStatus(!getStatus());
-    has_changed = true;
-  };
-
-  bool getStatus() {
-    return lightness != 0;
-  };
-
-  void setStatus(bool new_status) {
-    if (new_status == 0) {
-      lightness = 0;
-    } else {
-      if (last_lightness > min_lightness) {
-        lightness = last_lightness;
-      } else {
-        lightness = default_lightness;
-      }
-    }
-    has_changed = true;
-  };
-
-  void print() override {
-//    Serial.printf("[%s] Status: %d", name, getStatus());
-    if (type == CLR_BRI || type == CLR_ONLY) {
-//      Serial.printf(", Hue: %.2f, Saturation: %.2f", hue, saturation);
-    }
-    if (type == CLR_BRI || type == BRI_ONLY) {
-//      Serial.printf(", Lightness: %.2f", lightness);
-    }
-//    Serial.println("");
-  }
-
-//  Homebridge_Connector
-
-  void applyHomebridgeCommand(const char *receiver_name, const char *characteristic, int value) override {
-    if (strcmp(name, receiver_name) == 0) {
-      if (strcmp(characteristic, "On") == 0) {
-        setStatus((bool) value);
-      } else if (strcmp(characteristic, "Brightness") == 0) {
-        setStatus((float) value);
-      } else if (strcmp(characteristic, "Hue") == 0) {
-        setHue((float) value);
-      }
-    }
-  }
-
-  bool getHomebridgeRegisterStr(char *buffer) override {
-    switch (type) {
-      case ON_OFF :
-        sprintf(buffer, R"({"name": "%s", "service_name": "%s", "service": "Lightbulb"})", name, name);
-        break;
-      case BRI_ONLY :
-        sprintf(buffer,
-                R"({"name": "%s", "service_name": "%s", "service": "Lightbulb", "Brightness": "default"})",
-                name, name);
-        break;
-      case CLR_ONLY :
-        sprintf(buffer,
-                R"({"name": "%s", "service_name": "%s", "service": "Lightbulb", "Hue": "default", "Saturation": "default"})",
-                name, name);
-        break;
-      case CLR_BRI :
-        sprintf(buffer,
-                R"({"name": "%s", "service_name": "%s", "service": "Lightbulb", "Brightness": "default", "Hue": "default", "Saturation": "default"})",
-                name, name);
-        break;
-      default :
-        return false;
-    }
-    return true;
-  };
-
-  bool getHomebridgeUnregisterStr(char *buffer) override {
-    snprintf(&buffer[0], HOMEBRIDGE_UNREGISTER_STR_MAX_LEN, R"({"name": "%s"})", name);
-    return true;
-  }
-  // End of Homebridge-Connector
-
-  // Request-Connector
-  void decodeCommand(unsigned long code) override {
-    logger.printname(name, "Decoding 0x");
-    logger.add(code, HEX);
-    logger.add(": ");
-    const char *method_name = findMethodForCode(code);
-    if (method_name != nullptr) {
-      if (strcmp(method_name, "toggleStatus") == 0) {
-        logger.addln("'toggleStatus'");
-        toggleStatus();
-      } else if (strcmp(method_name, "'turnOn'") == 0) {
-        logger.addln("'turnOn");
-        setStatus(true);
-      } else if (strcmp(method_name, "'turnOff'") == 0) {
-        logger.addln("'turnOff");
-        setStatus(false);
-      } else {
-        logger.add("Found Nothing for '");
-        logger.add(method_name);
-        logger.addln("'");
-      }
-    } else {
-      logger.addln(" - ");
-    }
-  }
-  // End of Request-Connector
-};
-
-#endif
+#endif //__SH_GAGDET__
