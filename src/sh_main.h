@@ -3,11 +3,11 @@
 #include "system_settings.h"
 
 // Connectors
-#include "connectors/ir_connector.h"
+#include "connectors/ir_gadget.h"
 #include "connectors/mqtt_connector.h"
 #include "connectors/rest_connector.h"
-#include "connectors/serial_connector.h"
-#include "connectors/radio_connector.h"
+#include "connectors/serial_gadget.h"
+#include "connectors/radio_gadget.h"
 
 // Gadget-Lib
 #include "gadgets/gadget_library.h"
@@ -50,7 +50,7 @@ private:
   MQTT_Gadget *mqtt_gadget;
   REST_Gadget *rest_gadget;
   Serial_Gadget *serial_gadget;
-  Radio_Connector *radio_gadget;
+  Radio_Gadget *radio_gadget;
 
   WiFiClient network_client;
 
@@ -77,12 +77,65 @@ private:
     return everything_ok;
   }
 
+  SH_Gadget *getGadgetForName(const char *name) {
+    for (byte k = 0; k < anz_gadgets; k++) {
+      SH_Gadget *it_gadget = gadgets[k];
+      if (strcmp(it_gadget->getName(), name) == 0) {
+        return it_gadget;
+      }
+    }
+    return nullptr;
+  }
+
   void initGadgetConnectors(SH_Gadget *gadget) {
     logger.incIntent();
-    logger.println("Initializing Connectors:");
+    logger.println("Initializing Remote Connectors:");
     logger.incIntent();
     gadget->initConnectors(mqtt_gadget);
     logger.decIntent();
+    logger.decIntent();
+  }
+
+  void map_connectors(JsonObject connectors_json) {
+    logger.println("Mapping Connectors:");
+    logger.incIntent();
+    // IR
+    logger.print("IR:");
+    if (connectors_json["ir"] != nullptr && connectors_json["ir"].as<JsonArray>().size() > 0) {
+      logger.addln();
+      logger.incIntent();
+      JsonArray map_gadgets = connectors_json["ir"].as<JsonArray>();
+      for (byte k = 0; k < map_gadgets.size(); k++) {
+        const char *gadget_name = map_gadgets[k].as<const char *>();
+        SH_Gadget *found_gadget = getGadgetForName(gadget_name);
+        if (found_gadget != nullptr) {
+          found_gadget->setIR(ir_gadget);
+          logger.println(LOG_DATA, gadget_name);
+        }
+      }
+      logger.decIntent();
+    } else {
+      logger.addln(" -");
+    }
+
+    // Radio
+    logger.print("Radio:");
+    if (connectors_json["radio"] != nullptr && connectors_json["radio"].as<JsonArray>().size() > 0) {
+      logger.addln();
+      logger.incIntent();
+      JsonArray map_gadgets = connectors_json["radio"].as<JsonArray>();
+      for (byte k = 0; k < map_gadgets.size(); k++) {
+        const char *gadget_name = map_gadgets[k].as<const char *>();
+        SH_Gadget *found_gadget = getGadgetForName(gadget_name);
+        if (found_gadget != nullptr) {
+          found_gadget->setRadio(radio_gadget);
+          logger.println(LOG_DATA, gadget_name);
+        }
+      }
+      logger.decIntent();
+    } else {
+      logger.addln(" -");
+    }
     logger.decIntent();
   }
 
@@ -366,13 +419,19 @@ public:
     init_network(json["network"]);
     init_connectors(json["connectors"]);
     init_gadgets(json["gadgets"]);
+    map_connectors(json["connector-mapping"]);
 
     test_initialization();
 
     test_stuff();
-    logger.print("Free Heap:");
+    logger.print("Free Heap: ");
     logger.add(ESP.getFreeHeap());
     logger.addln();
+
+//    unsigned long blub = 0;
+//    blub -= 1;
+//    Serial.println(blub);
+//    Serial.println(blub, HEX);
   }
 
   void refresh() {

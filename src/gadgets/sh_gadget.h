@@ -1,14 +1,11 @@
 #include <cstring>
 #include <Arduino.h>
-#include "../connectors/serial_connector.h"
-#include "../connectors/radio_connector.h"
-#include "../connectors/ir_connector.h"
-#include "../connectors/mqtt_connector.h"
 #include "ArduinoJson.h"
 #include "../colors.h"
 #include "../helping_structures.h"
 #include "../system_settings.h"
 #include "../console_logger.h"
+#include "../connectors/connectors.h"
 
 #ifndef __SH_Gadget__
 #define __SH_Gadget__
@@ -20,7 +17,7 @@ enum SH_HSL_Color {
   SH_CLR_hue, SH_CLR_saturation, SH_CLR_lightness
 };
 
-class SH_Gadget {
+class SH_Gadget : public IR_Connector, public Radio_Connector {
 private:
 
 
@@ -37,7 +34,10 @@ protected:
   const char *findMethodForCode(unsigned long code) {
     for (byte k = 0; k < mapping_count; k++) {
       if (mapping[k]->containsCode(code)) {
-        return mapping[k]->getName();
+        const char *method_name = mapping[k]->getName();
+        logger.printname(name, "-> ");
+        logger.addln(method_name);
+        return method_name;
       }
     }
     return nullptr;
@@ -46,19 +46,16 @@ protected:
   virtual void applyMappingMethod(const char *method) {}
   // End Basic Code Connector
 
-  // Basic Request Connector
-
-  // End Basic Request Connector
-
   // Homebridge Connector
   char homebridge_service_type[HOMEBRIDGE_SERVICE_TYPE_LEN_MAX]{};
   MQTT_Gadget *homebridge_mqtt_gadget;
 
   bool registerHomebridgeGadget() {
     char reg_str[HOMEBRIDGE_REGISTER_STR_MAX_LEN]{};
-    char characteristic_buffer[HOMEBRIDGE_REGISTER_STR_MAX_LEN-80]{};
+    char characteristic_buffer[HOMEBRIDGE_REGISTER_STR_MAX_LEN - 80]{};
     if (getHomebridgeCharacteristics(&characteristic_buffer[0])) {
-      snprintf(reg_str, HOMEBRIDGE_REGISTER_STR_MAX_LEN, R"({"name": "%s", "service_name": "%s", "service": "%s", %s})", name, name, homebridge_service_type, characteristic_buffer);
+      snprintf(reg_str, HOMEBRIDGE_REGISTER_STR_MAX_LEN, R"({"name": "%s", "service_name": "%s", "service": "%s", %s})",
+               name, name, homebridge_service_type, characteristic_buffer);
     } else {
       sprintf(reg_str, R"({"name": "%s", "service_name": "%s", "service": "%s"})", name, name, homebridge_service_type);
     }
@@ -89,17 +86,19 @@ protected:
   void decodeHomebridgeCommand(JsonObject data) {
     if (data["name"] != nullptr && data["characteristic"] != nullptr && data["value"] != nullptr) {
       if (strcmp(name, data["name"].as<const char *>()) == 0) {
-        logger.print(LOG_DATA, "Gadget found: ");
-        logger.addln(name);
         int value;
         const char *characteristc = data["characteristic"].as<const char *>();
+        logger.printname(name, "-> ");
+        logger.addln(characteristc);
         if (data["value"] == "true")
           value = 1;
         else if (data["value"] == "false")
           value = 0;
         else
           value = data["value"].as<int>();
+        logger.incIntent();
         applyHomebridgeCommand(characteristc, value);
+        logger.decIntent();
       }
     }
   }
@@ -113,7 +112,7 @@ protected:
     homebridge_mqtt_gadget = new_gadget;
   }
 
-  void updateHomebridgeCharacteristic(const char *characteristic, int value, bool do_update=true) {
+  void updateHomebridgeCharacteristic(const char *characteristic, int value, bool do_update = true) {
     if (characteristic != nullptr && do_update) {
       char update_str[HOMEBRIDGE_UPDATE_STR_LEN_MAX]{};
       sprintf(&update_str[0],
@@ -127,7 +126,7 @@ protected:
     }
   }
 
-  void updateHomebridgeCharacteristic(const char *characteristic, bool value, bool do_update=true) {
+  void updateHomebridgeCharacteristic(const char *characteristic, bool value, bool do_update = true) {
     if (characteristic != nullptr && do_update) {
       char bool_str[6]{};
       if (value)
@@ -146,7 +145,7 @@ protected:
     }
   }
 
-  virtual bool getHomebridgeCharacteristics(char *buffer) {return false;}
+  virtual bool getHomebridgeCharacteristics(char *buffer) { return false; }
 
   virtual void applyHomebridgeCommand(const char *characteristic, int value) {};
   // End Homebridge Connector
@@ -155,8 +154,7 @@ public:
   SH_Gadget() :
     name("default"),
     initialized(false),
-    has_changed(true) {
-  };
+    has_changed(true) {};
 
   explicit SH_Gadget(JsonObject gadget) :
     initialized(false),
@@ -210,24 +208,25 @@ public:
   };
 
   void handleCode(unsigned long code) {
-    applyMappingMethod(findMethodForCode(code));
+    const char *method_name = findMethodForCode(code);
+    logger.incIntent();
+    applyMappingMethod(method_name);
+    logger.decIntent();
   }
 
   void handleRequest(REQUEST_TYPE type, const char *path, const char *body) {
-    logger.println("Decoding String");
+//    logger.println("Decoding String");
   }
 
-  bool handleRequest(REQUEST_TYPE type, const char *path, JsonObject body) {
+  void handleRequest(REQUEST_TYPE type, const char *path, JsonObject body) {
     if (type == REQ_MQTT && strcmp(path, "homebridge/from/set") == 0) {
       decodeHomebridgeCommand(body);
     }
   }
 
-  virtual void refresh() {
-  }
+  virtual void refresh() {}
 
-  virtual void print() {
-  }
+  virtual void print() {}
 
   void printMapping() {
     logger.printname(name, "Accessible Methods: ");

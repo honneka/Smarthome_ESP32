@@ -31,6 +31,7 @@ public:
     if (data["recv_pin"] != nullptr) {
       uint8_t r_pin = data["recv_pin"].as<int>();
       receiver = new IRrecv(r_pin);
+      receiver->enableIRIn();
       logger.print(LOG_DATA, "Receiver-Pin: ");
       logger.addln(r_pin);
     } else {
@@ -40,15 +41,13 @@ public:
     if (data["send_pin"] != nullptr) {
       uint8_t b_pin = data["send_pin"].as<int>();
       blaster = new IRsend(b_pin);
+      blaster->begin();
       logger.print(LOG_DATA, "Blaster-Pin: ");
       logger.addln(b_pin);
     } else {
       everything_ok = false;
       logger.println(LOG_ERR, "'send_pin' nicht spezifiziert.");
     }
-//    Serial.println(receiver->getTolerance());
-    receiver->enableIRIn();
-//    receiver->resume();
     code_gadget_is_ready = everything_ok;
     logger.decIntent();
   };
@@ -64,6 +63,8 @@ public:
       command_type = results.decode_type;
       received_command = results.value;
       receiver->resume();
+      if (received_command != 0xFFFFFFFF)
+        setCommand(received_command);
 
 //      Serial.println("[System / IR Receiver] Received Something:\n  Encoding: ");
 //      switch (command_type) {
@@ -117,14 +118,23 @@ public:
 //          Serial.print("Denon");
 //          break;
 //      }
-      if (command_type != UNKNOWN) {
-        setCommand(received_command);
-      }
+//      if (command_type != UNKNOWN) {
+//        setCommand(received_command);
+//      }
     }
   };
 
-  bool sendIR(long command, uint8_t com_type) {
-    Serial.print("[System / IR Receiver] Sending:\n");
+  bool sendRawIR(uint16_t raw_data[], uint8_t content_length) {
+    logger.printname("System / IR", "Sending Raw Command, 38kHz, ");
+    blaster->sendRaw(raw_data, content_length, 38);
+    logger.add(content_length);
+    logger.addln(" Blocks.");
+    receiver->resume();
+    return true;
+  }
+
+  bool sendIR(unsigned long command, uint8_t com_type) {
+    logger.printname("System / IR", "Sending: ");
     switch (com_type) {
       case NEC:
         blaster->sendNEC(command);
@@ -142,49 +152,14 @@ public:
         blaster->sendDenon(command);
         break;
       default:
-        Serial.print(" Unsupported Command.\n");
+        logger.addln("Unsupported Command.");
+        return false;
     }
+    logger.add("0x");
+    logger.addln(command, HEX);
     receiver->resume();
     return true;
   };
-
-//  uint8_t getCommandEncoding() {
-//    return command_type;
-//  }
-};
-
-
-// Connector for IR Usage
-class IR_Connector {
-protected:
-
-  IR_Gadget *irgadget;
-
-  bool initialized_serial;
-
-  // DynamicJsonDocument recv_commands;
-
-  bool decode_ir() {
-    Serial.println("[WARN] decode_ir() not implemented");
-    return false;
-  };
-
-  bool send_ir() {
-    Serial.println("[WARN] send_ir() not implemented");
-    return false;
-  };
-
-public:
-
-  IR_Connector() :
-    irgadget(nullptr),
-    initialized_serial(false) {}
-
-  void init_ir_con(IR_Gadget *new_ir_gadget) {
-    initialized_serial = true;
-    irgadget = new_ir_gadget;
-  }
-
 };
 
 #endif

@@ -9,7 +9,6 @@
 class Serial_Gadget : public Code_Gadget, public Request_Gadget {
 protected:
   bool messageType(const char *message) {
-    unsigned long comBuffer = 0;
     short bufflen = strlen(message);
     for (short i = 0; i < bufflen; i++) {
       int charInt = (int) message[i];
@@ -69,26 +68,6 @@ public:
 //      }
     }
   }
-};
-
-class Serial_Connector {
-protected:
-
-  Serial_Gadget *serialgadget;
-
-  bool initialized_serial;
-
-public:
-  Serial_Connector() :
-      serialgadget(nullptr),
-      initialized_serial(false) {
-  };
-
-  void init_serial_con(Serial_Gadget *new_serial_gadget) {
-    initialized_serial = true;
-    serialgadget = new_serial_gadget;
-  }
-
 };
 
 #endif //SERIAL_CONNECTOR_H
