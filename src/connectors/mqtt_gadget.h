@@ -18,14 +18,14 @@ protected:
 
   PubSubClient *mqttClient{};
 
-  uint16_t port{};
+  uint16_t mqtt_port{};
 
   char username[MQTT_USERNAME_MAX_LEN]{};
 
   char password[MQTT_PW_MAX_LEN]{};
 
   bool connect_mqtt() {
-    mqttClient->setServer(*mqttServer, port);
+    mqttClient->setServer(*mqttServer, mqtt_port);
 
     using std::placeholders::_1;
     using std::placeholders::_2;
@@ -85,8 +85,7 @@ protected:
 
 public:
   MQTT_Gadget() :
-    Request_Gadget() {
-  };
+    Request_Gadget() {};
 
   MQTT_Gadget(IPAddress *broker_ip, WiFiClient *network_client) :
     Request_Gadget(),
@@ -98,7 +97,7 @@ public:
     Request_Gadget() {
     logger.println("Creating MQTT Gadget");
     networkClient = WiFiClient();
-    logger.incIntent();
+    logger.incIndent();
     mqttClient = new PubSubClient(networkClient);
     bool everything_ok = true;
     // Reads the IP from the JSON
@@ -131,9 +130,9 @@ public:
 
     // Reads the Port from the JSON
     if (data["port"] != nullptr) {
-      port = data["port"].as<unsigned int>();
+      mqtt_port = data["port"].as<unsigned int>();
       logger.print(LOG_DATA, "Port: ");
-      logger.addln(port);
+      logger.addln(mqtt_port);
     } else {
       everything_ok = false;
       logger.println(LOG_ERR, "'port' missing in config.");
@@ -161,7 +160,7 @@ public:
     }
 
     connect_mqtt();
-    logger.decIntent();
+    logger.decIndent();
     request_gadget_is_ready = everything_ok;
   };
 
@@ -191,7 +190,7 @@ public:
     if (!request_gadget_is_ready) {
       return false;
     }
-    logger.printname("System / MQTT", "publishing on '");
+    logger.print("System / MQTT", "publishing on '");
     logger.add(topic);
     if (wait_for_answer)
       logger.add("': ");
@@ -207,6 +206,26 @@ public:
     status = status && mqttClient->endPublish();
     return status;
   }
+
+  void
+  sendRequest(REQUEST_TYPE req_type, const char *content_type, IPAddress ip, int port, const char *req_path,
+              const char *req_body) override {
+
+  }
+
+  void
+  sendRequest(REQUEST_TYPE req_type, const char *content_type, IPAddress ip, int port, const char *req_path,
+              JsonObject req_body) override {
+
+  }
+
+  void sendAnswer(const char *req_body, int status_code) override {
+
+  };
+
+  void sendAnswer(JsonObject req_body, int status_code) override {
+
+  };
 
   void refresh() override {
     if (!request_gadget_is_ready) {

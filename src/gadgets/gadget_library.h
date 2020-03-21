@@ -16,7 +16,7 @@
 #include "sh_lamp_westinghouse_ir.h"
 
 
-static SH_Gadget *create_gadget(JsonObject gadget_json) {
+static SH_Gadget *createGadget(JsonObject gadget_json) {
   const char *name = gadget_json["name"].as<const char *>();
   const char *type = gadget_json["type"].as<const char *>();
 
@@ -26,7 +26,7 @@ static SH_Gadget *create_gadget(JsonObject gadget_json) {
     logger.print("Adding Gadget '");
     logger.add(name);
     logger.addln("'");
-    logger.incIntent();
+    logger.incIndent();
 
     //sh_neopixel_basic.h
     if (strcmp(type, "sh_lamp_neopixel_basic") == 0) {
@@ -54,7 +54,7 @@ static SH_Gadget *create_gadget(JsonObject gadget_json) {
       logger.addln("'");
       new_gadget = nullptr;
     }
-    logger.decIntent();
+    logger.decIndent();
     return new_gadget;
   }
   logger.println(LOG_ERR, "Information incomplete.");

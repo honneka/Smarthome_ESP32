@@ -1,6 +1,11 @@
 #ifndef __SYSTEM_SETTINGS__
 #define __SYSTEM_SETTINGS__
 
+//general
+#define EEPROM_SIZE 64
+#define SERIAL_SPEED 115200
+#define EEPROM_CONFIG_LEN_MAX 2000
+
 // gadget-Command-Mapping
 #define MAPPING_MAX_COMMANDS 15
 #define MAPPING_MAX_CODES 10
@@ -14,7 +19,7 @@
 
 // Reguests
 #define REQUEST_PATH_LEN_MAX 40
-#define REQUEST_BODY_LEN_MAX 1000
+#define REQUEST_BODY_LEN_MAX 2000
 #define REQUEST_TYPE_LEN_MAX 20
 
 // Rest
@@ -25,6 +30,9 @@
 #define HOMEBRIDGE_UNREGISTER_STR_MAX_LEN 50
 #define HOMEBRIDGE_UPDATE_STR_LEN_MAX 240
 #define HOMEBRIDGE_SERVICE_TYPE_LEN_MAX 25
+
+// Remotes
+#define REMOTE_MANAGER_MAX_REMOTES 3
 
 const char json_str[] = R"(
 {
@@ -120,6 +128,15 @@ const char json_str[] = R"(
       "Deckenlampe"
     ],
     "radio": []
+  },
+  "remote-mapping": {
+    "homebridge": [
+      "Testlampe NP",
+      "Testlampe 2",
+      "TestFan",
+      "Deckenlampe"
+    ],
+    "rest": []
   }
 }
 )";

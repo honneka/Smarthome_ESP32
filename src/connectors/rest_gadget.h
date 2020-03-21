@@ -131,11 +131,33 @@ public:
       Request_Gadget(data) {
     client = new WiFiClient;
     logger.println("Initializing REST_Gadget");
-    logger.incIntent();
+    logger.incIndent();
     initServer();
-    logger.decIntent();
+    logger.decIndent();
     request_gadget_is_ready = true;
   };
+
+  void sendRequest(REQUEST_TYPE req_type, const char *content_type, IPAddress ip, int port, const char *req_path,
+                   const char *req_body) override {
+    sendRequestFromClient(req_type, content_type, ip, port, req_path, req_body);
+  }
+
+  void sendRequest(REQUEST_TYPE req_type, const char *content_type, IPAddress ip, int port, const char *req_path,
+                   JsonObject req_body) override {
+    char body[REQUEST_BODY_LEN_MAX];
+    serializeJson(req_body, &body[0], REQUEST_BODY_LEN_MAX);
+    sendRequestFromClient(req_type, content_type, ip, port, req_path, body);
+  }
+
+  void sendAnswer(const char *req_body, int status_code) override {
+    sendAnswerFromServer(status_code, "text/plain", req_body);
+  }
+
+  void sendAnswer(JsonObject req_body, int status_code) override {
+    char body[REQUEST_BODY_LEN_MAX]{};
+    serializeJson(req_body, &body[0], REQUEST_BODY_LEN_MAX);
+    sendAnswerFromServer(status_code, "application/json", body);
+  }
 
   void refresh() override {
     if (!request_gadget_is_ready) {
@@ -155,30 +177,6 @@ public:
 //      response_status = 200;
 //    }
   }
-
-  void sendRequest(REQUEST_TYPE req_type, const char *content_type, IPAddress ip, int port, const char *req_path,
-                   const char *req_body) override {
-    sendRequestFromClient(req_type, content_type, ip, port, req_path, req_body);
-  }
-
-  void sendRequest(REQUEST_TYPE req_type, const char *content_type, IPAddress ip, int port, const char *req_path,
-                   JsonObject req_body) override {
-    char body[REQUEST_BODY_LEN_MAX];
-    serializeJson(req_body, &body[0], REQUEST_BODY_LEN_MAX);
-    sendRequestFromClient(req_type, content_type, ip, port, req_path, body);
-  }
-
-
-  void sendAnswer(const char *req_body, int status_code) override {
-    sendAnswerFromServer(status_code, "text/plain", req_body);
-  }
-
-  void sendAnswer(JsonObject req_body, int status_code) override {
-    char body[REQUEST_BODY_LEN_MAX]{};
-    serializeJson(req_body, &body[0], REQUEST_BODY_LEN_MAX);
-    sendAnswerFromServer(status_code, "application/json", body);
-  }
-
 
 };
 
