@@ -16,7 +16,7 @@ class SH_Lamp_NeoPixel_Basic : public SH_Lamp {
 private:
   uint8_t pin;
   uint16_t len;
-//  NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> *led_stripe;
+  Adafruit_NeoPixel* led_stripe;
 
 public:
 
@@ -35,15 +35,10 @@ public:
       logger.print("Pin: ");
       logger.addln(pin);
 
-//      pinMode(pin, OUTPUT);
-//      led_stripe = new NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>(len, pin);
-      setColor(0, 0, 0xFF);
-      delay(500);
-      setColor(0, 0xFF, 0);
-      delay(500);
-      setColor(0xFF, 0, 0);
-      delay(500);
-      setLEDColor(0, 0, 0);
+      led_stripe = new Adafruit_NeoPixel(len, pin, NEO_GRB + NEO_KHZ800);
+      led_stripe->begin();
+      led_stripe->clear();
+      led_stripe->show();
     } else {
       pin = 0;
       logger.println(LOG_ERR, "No Pin selected.");
@@ -52,26 +47,21 @@ public:
 
   void refresh() override {
     if (has_changed) {
-//      logger.print(name, "has changed.\n");
-      uint8_t rgb[3];
-      getColor(&rgb[0]);
-      setLEDColor(rgb[0], rgb[1], rgb[2]);
+      logger.print(getName(), "has changed.\n");
+      auto clr = lamp_color.getRGB();
 
-//      if (getStatus())
-//        setLEDColor(0xFF, 0xFF, 0xFF);
-//      else
-//        setLEDColor(0, 0, 0);
+      setLEDColor(clr->getRed(), clr->getGreen(), clr->getBlue());
     }
     has_changed = false;
   };
 
-  void setLEDColor(uint8_t r, uint8_t g, uint8_t b) {
+  void setLEDColor(int r, int g, int b) {
     Serial.printf("[%s] Setting Color: (%d, %d, %d)\n", getName(), r, g, b);
-    RgbColor clr(r, g, b);
-    for (uint16_t k = 0; k < len; k++) {
-//      led_stripe->SetPixelColor(k, clr);
+
+    for (int k = 0; k < len; k++) {
+      led_stripe->setPixelColor(k, Adafruit_NeoPixel::Color(r, g, b));
     }
-//    led_stripe->Show();
+    led_stripe->show();
   }
 };
 

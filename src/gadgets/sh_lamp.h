@@ -158,7 +158,7 @@ public:
     return true;
   }
 
-  virtual void handleMethodUpdate(const char *method) override {
+  void handleMethodUpdate(const char *method) override {
     if (method != nullptr) {
       if (strcmp(method, "toggleStatus") == 0) {
         toggleStatus();

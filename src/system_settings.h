@@ -52,48 +52,16 @@ const char json_str[] = R"(
   "id" : "TestClientESP32",
   "gadgets": [
     {
-      "type": "sh_lamp_basic",
-      "name": "Testlampe 2",
+      "type": "sh_lamp_neopixel_basic",
+      "name": "Testlampe NP",
       "lamp_type": 0,
-      "pin": 2,
-      "default_state": 0,
+      "pin": 33,
+      "length": "24",
       "mapping": {
-        "toggleStatus": [
-          1,
-          33464415
-        ],
-        "turnOn": [
-          2,
-          33448095
-        ],
-        "turnOff": [
-          3,
-          33480735
-        ]
+        "toggleStatus": [1, 16],
+        "turnOn": [2, 17],
+        "turnOff": [3, 18]
       }
-    },
-    {
-      "type": "sh_fan_westinghouse_ir",
-      "name": "TestFan",
-      "mapping": {
-        "toggleStatus": [
-          5,
-          16
-        ],
-        "turnOn": [
-          6,
-          17
-        ],
-        "turnOff": [
-          7,
-          18
-        ]
-      }
-    },
-    {
-      "type": "sh_lamp_westinghouse_ir",
-      "name": "Deckenlampe",
-      "mapping": {}
     }
   ],
   "network": {
@@ -114,15 +82,13 @@ const char json_str[] = R"(
   "gadget-remote": {
     "type": "smarthome",
     "gadgets": [
-      "TestFan",
-      "Testlampe 2"
+      "Testlampe NP"
     ]
   },
   "code-remote": {
     "type": "smarthome",
     "gadgets": [
-      "TestFan",
-      "Testlampe 2"
+      "Testlampe NP"
     ]
   },
   "event-remote": {
