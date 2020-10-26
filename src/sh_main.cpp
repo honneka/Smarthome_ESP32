@@ -163,6 +163,7 @@ bool SH_Main::initConnectors() {
     logger.println("No IR Configured");
     ir_gadget = nullptr;
   }
+  radio_gadget = new Radio_Gadget(4, 5);
   logger.decIndent();
 
   logger.println("Creating Radio-Gadget:");
@@ -1104,6 +1105,9 @@ void SH_Main::refreshModeComplete() {
 
   ir_gadget->refresh();
   handleCodeConnector(ir_gadget);
+
+  radio_gadget->refresh();
+  handleCodeConnector(radio_gadget);
 
 //  handleCodeRemote();
 
