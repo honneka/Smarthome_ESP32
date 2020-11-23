@@ -163,7 +163,7 @@ bool SH_Main::initConnectors() {
     logger.println("No IR Configured");
     ir_gadget = nullptr;
   }
-  radio_gadget = new Radio_Gadget(4, 5);
+//  radio_gadget = new Radio_Gadget();
   logger.decIndent();
 
   logger.println("Creating Radio-Gadget:");

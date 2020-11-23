@@ -5,7 +5,7 @@ Radio_Gadget::Radio_Gadget() :
     driver(nullptr) {
 }
 
-Radio_Gadget::Radio_Gadget(JsonObject data) :
+Radio_Gadget::Radio_Gadget(uint8_t reciever_pin, uint8_t sender_pin) :
   Code_Gadget() {}
 
 void Radio_Gadget::refresh() {
